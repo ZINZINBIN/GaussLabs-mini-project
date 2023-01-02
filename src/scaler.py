@@ -193,9 +193,15 @@ class Wrapper(nn.Module):
 
     def forward(self, x : torch.Tensor, target : Optional[torch.Tensor] = None, target_len : Optional[torch.Tensor] = None, teacher_forcing_ratio : Optional[float] = None):
         
-        if target is not None and self.scaler:
+        if target is not None and self.scaler and target_len is not None: 
             x = self.scaler(x, 'norm')
             x = self.model(x, target, target_len, teacher_forcing_ratio)
+            x = self.scaler(x, 'denorm')
+            return x
+        
+        elif target is not None and self.scaler and target_len is None:
+            x = self.scaler(x, 'norm')
+            x = self.model(x, target)
             x = self.scaler(x, 'denorm')
             return x
         
@@ -205,8 +211,12 @@ class Wrapper(nn.Module):
             x = self.scaler(x, 'denorm')
             return x
         
-        elif target is not None and not self.scaler:
+        elif target is not None and not self.scaler and target_len is not None:
             x = self.model(x, target, target_len, teacher_forcing_ratio)
+            return x
+        
+        elif target is not None and not self.scaler and target_len is None:
+            x = self.model(x, target)
             return x
         
         else:

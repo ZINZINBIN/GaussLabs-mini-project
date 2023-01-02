@@ -30,6 +30,8 @@ def train_per_epoch(
         if model_type == 'lstm':
             target_len = target.size()[1]
             output = model(data, target, target_len, 0.5)
+        elif model_type == 'informer':
+            output = model(data, target)
         else:
             output = model(data)
         
@@ -74,6 +76,8 @@ def valid_per_epoch(
             if model_type == 'lstm':
                 target_len = target.size()[1]
                 output = model.predict(data, target_len)
+            elif model_type == 'informer':
+                output = model(data, target)
             else:
                 output = model(data)
             
@@ -185,6 +189,8 @@ def evaluate(
             if model_type == 'lstm':
                 target_len = target.size()[1]
                 output = model.predict(data, target_len)
+            elif model_type == 'informer':
+                output = model(data, target)
             else:
                 output = model(data)
 

@@ -5,17 +5,22 @@ from src.Informer.embed import DataEmbedding
 from src.Informer.attn import FullAttention, ProbAttention, AttentionLayer
 from src.Informer.encoder import Encoder, EncoderLayer, ConvLayer, EncoderStack
 from src.Informer.decoder import Decoder, DecoderLayer
+from pytorch_model_summary import summary
 
 class Informer(nn.Module):
     def __init__(self, enc_in, dec_in, c_out, seq_len, label_len, out_len, 
                 factor=5, d_model=512, n_heads=8, e_layers=3, d_layers=2, d_ff=512, 
                 dropout=0.0, attn='prob', embed='fixed', freq='h', activation='gelu', 
-                output_attention = False, distil=True, mix=True,
-                device=torch.device('cuda:0')):
+                output_attention = False, distil=True, mix=True, t_input_dim : int = 4
+                ):
         super(Informer, self).__init__()
+        self.enc_in = enc_in
+        self.dec_in = dec_in
+        self.seq_len = seq_len
         self.pred_len = out_len
         self.attn = attn
         self.output_attention = output_attention
+        self.t_input_dim  = t_input_dim
 
         # Encoding
         self.enc_embedding = DataEmbedding(enc_in, d_model, embed, freq, dropout)
@@ -62,8 +67,14 @@ class Informer(nn.Module):
         # self.end_conv2 = nn.Conv1d(in_channels=d_model, out_channels=c_out, kernel_size=1, bias=True)
         self.projection = nn.Linear(d_model, c_out, bias=True)
         
-    def forward(self, x_enc, x_mark_enc, x_dec, x_mark_dec, 
-                enc_self_mask=None, dec_self_mask=None, dec_enc_mask=None):
+    def forward(self, x : torch.Tensor, x_target : torch.Tensor, enc_self_mask=None, dec_self_mask=None, dec_enc_mask=None):
+        
+        x_mark_enc = x[:,:,0:self.t_input_dim]
+        x_enc = x[:,:,self.t_input_dim:]
+        
+        x_mark_dec = x_target[:,:,0:self.t_input_dim]
+        x_dec = x_target[:,:,self.t_input_dim:]
+        
         enc_out = self.enc_embedding(x_enc, x_mark_enc)
         enc_out, attns = self.encoder(enc_out, attn_mask=enc_self_mask)
 
@@ -77,6 +88,12 @@ class Informer(nn.Module):
             return dec_out[:,-self.pred_len:,:], attns
         else:
             return dec_out[:,-self.pred_len:,:] # [B, L, D]
+        
+    def summary(self):
+        sample_data = torch.zeros((1, self.seq_len, self.enc_in + self.t_input_dim))
+        sample_target = torch.zeros((1, self.seq_len, self.enc_in + self.t_input_dim))
+        
+        return summary(self, sample_data, sample_target, None, None, None, batch_size = 1, show_input = True, show_hierarchical=False,print_summary=True)
 
 
 class InformerStack(nn.Module):

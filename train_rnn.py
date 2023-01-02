@@ -9,6 +9,7 @@ from src.scaler import Wrapper
 from src.utils import split_data, plot_learning_curve
 from src.dataset import CustomDataset
 from src.train import train, evaluate
+from src.feature_extraction import time_features
 from torch.utils.data import DataLoader
 
 # argument parser
@@ -21,6 +22,9 @@ def parsing():
     
     # gpu allocation
     parser.add_argument("--gpu_num", type = int, default = 0)
+    
+    # dataset
+    parser.add_argument("--dataset", type = str, default = 'etth1', choices=['etth1','etth2', 'ettm1', 'ettm2'])
 
     # batch size / sequence length / epochs / distance / num workers / pin memory use
     parser.add_argument("--batch_size", type = int, default = 128)
@@ -82,19 +86,20 @@ if __name__ == "__main__":
         device = 'cpu'
         
     # scaler
+    num_features = len(config.t_feature_cols + config.src_cols)
     if not args['use_scaler']:
         args_scaler = {}
         tag_scale = 'None'
         
     elif args['scaler'] == 'MinMax':
         args_scaler = {            
-            "num_features" : len(config.src_cols),
+            "num_features" : num_features,
             "eps" : 1e-6
         }
         tag_scale = 'MinMax'
     elif args['scaler'] == 'BatchNorm':
         args_scaler = {            
-            "num_features" : len(config.src_cols),
+            "num_features" : num_features,
             "eps" : 1e-6,
             "momentum" : 0.1,
             "affine" : True,
@@ -103,7 +108,7 @@ if __name__ == "__main__":
         tag_scale = 'BN'
     elif args['scaler'] == 'InstanceNorm':
         args_scaler = {            
-            "num_features" : len(config.src_cols),
+            "num_features" : num_features,
             "eps" : 1e-6,
             "momentum" : 0.1,
             "affine" : True,
@@ -112,7 +117,7 @@ if __name__ == "__main__":
         tag_scale = 'IN'
     elif args['scaler'] == 'LayerNorm':
         args_scaler = {            
-            "num_features" : len(config.src_cols),
+            "num_features" : num_features,
             "eps" : 1e-6,
             "gamma":True, 
             "beta":True
@@ -120,14 +125,14 @@ if __name__ == "__main__":
         tag_scale = 'LN'
     elif args['scaler'] == 'RevIN':
         args_scaler = {
-            "num_features" : len(config.src_cols),
+            "num_features" : num_features,
             "eps" : 1e-6,
             "affine" : True
         }
         tag_scale = 'RevIN'
     else:     
         args_scaler = {
-            "num_features" : len(config.src_cols),
+            "num_features" : num_features,
             "eps" : 1e-6,
             "affine" : True
         }
@@ -139,18 +144,19 @@ if __name__ == "__main__":
     if not os.path.isdir(save_dir):
         os.mkdir(save_dir)
     
-    tag = "{}_seq_{}_pred_{}_dist_{}_scaler_{}".format(args["tag"], args["seq_len"], args['pred_len'], args["dist"], tag_scale)
+    tag = "{}_seq_{}_pred_{}_dist_{}_scaler_{}_{}".format(args["tag"], args["seq_len"], args['pred_len'], args["dist"], tag_scale, args['dataset'])
     save_best_dir = "./weights/{}_best.pt".format(tag)
     save_last_dir = "./weights/{}_last.pt".format(tag)
     exp_dir = os.path.join(save_dir, "tensorboard_{}".format(tag))
     
     # dataset setup
-    data = pd.read_csv(config.DATA_PATH['ettm1'])
+    data = pd.read_csv(config.DATA_PATH[args['dataset']])
+    data[config.t_feature_cols] = time_features(data, timeenc = 1, freq = 'h')
     ts_train, ts_valid, ts_test = split_data(data, 0.6, 0.2)
     
-    train_data = CustomDataset(ts_train, config.src_cols, config.tar_cols, args['seq_len'], args['pred_len'], stride = args['stride'])
-    valid_data = CustomDataset(ts_valid, config.src_cols, config.tar_cols, args['seq_len'], args['pred_len'], stride = args['stride'])
-    test_data = CustomDataset(ts_test, config.src_cols, config.tar_cols, args['seq_len'], args['pred_len'], stride = args['stride'])
+    train_data = CustomDataset(ts_train, config.t_feature_cols + config.src_cols, config.t_feature_cols + config.tar_cols, args['seq_len'], args['pred_len'], stride = args['stride'])
+    valid_data = CustomDataset(ts_valid, config.t_feature_cols + config.src_cols, config.t_feature_cols + config.tar_cols, args['seq_len'], args['pred_len'], stride = args['stride'])
+    test_data = CustomDataset(ts_test, config.t_feature_cols + config.src_cols, config.t_feature_cols + config.tar_cols, args['seq_len'], args['pred_len'], stride = args['stride'])
 
     # dataset info
     print("train data : {}, # of features : {}".format(train_data.__len__(), len(config.src_cols)))
@@ -159,9 +165,9 @@ if __name__ == "__main__":
     
     # define model
     network = SimpleRNN(
-        input_dim = len(config.src_cols),
+        input_dim = len(config.t_feature_cols + config.src_cols),
         hidden_dim = args['hidden_dim'],
-        output_dim = len(config.tar_cols),
+        output_dim = len(config.t_feature_cols + config.tar_cols),
         n_layers = args['n_layers'],
         target_len = args['pred_len'],
         teacher_forcing_ratio=args['teacher_forcing_ratio']

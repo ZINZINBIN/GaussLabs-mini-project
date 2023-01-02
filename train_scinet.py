@@ -3,13 +3,13 @@ import os
 import numpy as np
 import pandas as pd
 import argparse
-from src.seq2seq import SimpleRNN
 from src.SCINet.model import SCINet
 from src.config import Config
 from src.scaler import Wrapper
 from src.utils import split_data, plot_learning_curve
 from src.dataset import CustomDataset
 from src.train import train, evaluate
+from src.feature_extraction import time_features
 from torch.utils.data import DataLoader
 
 # argument parser
@@ -22,6 +22,9 @@ def parsing():
     
     # gpu allocation
     parser.add_argument("--gpu_num", type = int, default = 0)
+    
+    # dataset
+    parser.add_argument("--dataset", type = str, default = 'etth1', choices=['etth1','etth2', 'ettm1', 'ettm2'])
 
     # batch size / sequence length / epochs / distance / num workers / pin memory use
     parser.add_argument("--batch_size", type = int, default = 128)
@@ -64,7 +67,6 @@ def parsing():
 
     return args
 
-        
 
 # torch device state
 print("############### device setup ###################")
@@ -148,13 +150,13 @@ if __name__ == "__main__":
     if not os.path.isdir(save_dir):
         os.mkdir(save_dir)
     
-    tag = "{}_seq_{}_pred_{}_dist_{}_scaler_{}".format(args["tag"], args["seq_len"], args['pred_len'], args["dist"], tag_scale)
+    tag = "{}_seq_{}_pred_{}_dist_{}_scaler_{}_{}".format(args["tag"], args["seq_len"], args['pred_len'], args["dist"], tag_scale, args['dataset'])
     save_best_dir = "./weights/{}_best.pt".format(tag)
     save_last_dir = "./weights/{}_last.pt".format(tag)
     exp_dir = os.path.join(save_dir, "tensorboard_{}".format(tag))
     
     # dataset setup
-    data = pd.read_csv(config.DATA_PATH['ettm1'])
+    data = pd.read_csv(config.DATA_PATH[args['dataset']])
     ts_train, ts_valid, ts_test = split_data(data, 0.6, 0.2)
     
     train_data = CustomDataset(ts_train, config.src_cols, config.tar_cols, args['seq_len'], args['pred_len'], stride = args['stride'])
