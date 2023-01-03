@@ -30,7 +30,7 @@ def parsing():
     parser.add_argument("--batch_size", type = int, default = 128)
     parser.add_argument("--num_epoch", type = int, default = 64)
     parser.add_argument("--seq_len", type = int, default = 128)
-    parser.add_argument("--pred_len", type = int, default = 32)
+    parser.add_argument("--pred_len", type = int, default = 96)
     parser.add_argument("--stride", type = int, default = 4)
     parser.add_argument("--dist", type = int, default = 0)
     parser.add_argument("--num_workers", type = int, default = 4)
@@ -47,15 +47,15 @@ def parsing():
     
     # scaler : MinMax, Robust, Standard, BatchNorm, LayerNorm, RevIN
     parser.add_argument("--use_scaler", type = bool, default = True)
-    parser.add_argument("--scaler", type = str, default = "RevIN", choices=['MinMax','BatchNorm', 'LayerNorm', 'InstanceNorm','RevIN'])
+    parser.add_argument("--scaler", type = str, default = "RevIN", choices=['Normal', 'MinMax','BatchNorm', 'LayerNorm', 'InstanceNorm','RevIN'])
 
     # monitoring the training process
     parser.add_argument("--verbose", type = int, default = 4)
     
     # model setup - lstm
     parser.add_argument("--hidden_dim", type = int, default = 128)
-    parser.add_argument("--n_layers", type = int, default = 2)
-    parser.add_argument("--teacher_forcing_ratio", type = float, default = 0.5)
+    parser.add_argument("--n_layers", type = int, default = 1)
+    parser.add_argument("--teacher_forcing_ratio", type = float, default = 0.6)
     
     args = vars(parser.parse_args())
 
@@ -86,11 +86,11 @@ if __name__ == "__main__":
         device = 'cpu'
         
     # scaler
-    num_features = len(config.t_feature_cols + config.src_cols)
-    if not args['use_scaler']:
+    # num_features = len(config.t_feature_cols + config.src_cols)
+    num_features = len(config.src_cols)
+    if args['scaler'] == 'Normal':
         args_scaler = {}
-        tag_scale = 'None'
-        
+        tag_scale = 'normal'
     elif args['scaler'] == 'MinMax':
         args_scaler = {            
             "num_features" : num_features,
@@ -130,13 +130,6 @@ if __name__ == "__main__":
             "affine" : True
         }
         tag_scale = 'RevIN'
-    else:     
-        args_scaler = {
-            "num_features" : num_features,
-            "eps" : 1e-6,
-            "affine" : True
-        }
-        tag_scale = 'RevIN'
         
     # directory setting
     save_dir = args['save_dir']
@@ -145,18 +138,18 @@ if __name__ == "__main__":
         os.mkdir(save_dir)
     
     tag = "{}_seq_{}_pred_{}_dist_{}_scaler_{}_{}".format(args["tag"], args["seq_len"], args['pred_len'], args["dist"], tag_scale, args['dataset'])
-    save_best_dir = "./weights/{}_best.pt".format(tag)
-    save_last_dir = "./weights/{}_last.pt".format(tag)
     exp_dir = os.path.join(save_dir, "tensorboard_{}".format(tag))
+    
+    print("setting : ", tag)
     
     # dataset setup
     data = pd.read_csv(config.DATA_PATH[args['dataset']])
     data[config.t_feature_cols] = time_features(data, timeenc = 1, freq = 'h')
     ts_train, ts_valid, ts_test = split_data(data, 0.6, 0.2)
     
-    train_data = CustomDataset(ts_train, config.t_feature_cols + config.src_cols, config.t_feature_cols + config.tar_cols, args['seq_len'], args['pred_len'], stride = args['stride'])
-    valid_data = CustomDataset(ts_valid, config.t_feature_cols + config.src_cols, config.t_feature_cols + config.tar_cols, args['seq_len'], args['pred_len'], stride = args['stride'])
-    test_data = CustomDataset(ts_test, config.t_feature_cols + config.src_cols, config.t_feature_cols + config.tar_cols, args['seq_len'], args['pred_len'], stride = args['stride'])
+    train_data = CustomDataset(ts_train, config.src_cols, config.tar_cols, args['seq_len'], args['pred_len'], stride = args['stride'])
+    valid_data = CustomDataset(ts_valid, config.src_cols, config.tar_cols, args['seq_len'], args['pred_len'], stride = args['stride'])
+    test_data = CustomDataset(ts_test, config.src_cols, config.tar_cols, args['seq_len'], args['pred_len'], stride = args['stride'])
 
     # dataset info
     print("train data : {}, # of features : {}".format(train_data.__len__(), len(config.src_cols)))
@@ -165,9 +158,9 @@ if __name__ == "__main__":
     
     # define model
     network = SimpleRNN(
-        input_dim = len(config.t_feature_cols + config.src_cols),
+        input_dim = len(config.src_cols),
         hidden_dim = args['hidden_dim'],
-        output_dim = len(config.t_feature_cols + config.tar_cols),
+        output_dim = len(config.tar_cols),
         n_layers = args['n_layers'],
         target_len = args['pred_len'],
         teacher_forcing_ratio=args['teacher_forcing_ratio']
@@ -234,7 +227,7 @@ if __name__ == "__main__":
     # evaluation process
     print("\n################# evaluation process #################\n")
     model.load_state_dict(torch.load(os.path.join("./weights", "{}_best.pt".format(tag))))
-    test_loss = evaluate(
+    test_loss, mse, rmse, mae, r2 = evaluate(
         test_loader,
         model,
         'lstm',

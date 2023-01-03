@@ -116,6 +116,9 @@ def train(
     
     save_best = os.path.join(save_dir, "{}_best.pt".format(tag))
     save_last = os.path.join(save_dir, "{}_last.pt".format(tag))
+    
+    print("save best : ", save_best)
+    print("save_last : ", save_last)
 
     for epoch in tqdm(range(num_epoch), desc = "training process"):
 
@@ -207,6 +210,9 @@ def evaluate(
     pts = np.concatenate(pts, axis = 0)
     gts = np.concatenate(gts, axis = 0)
     
-    mse, rmse, mae = compute_metrics(gts,pts,None,True)
+    pts = pts[:,-1]
+    gts = gts[:,-1]
+    
+    mse, rmse, mae, r2 = compute_metrics(gts,pts,None,True)
 
-    return test_loss
+    return test_loss, mse, rmse, mae, r2

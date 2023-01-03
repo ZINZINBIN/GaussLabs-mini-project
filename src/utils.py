@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from typing import Union, List, Optional, Tuple
-from sklearn.metrics import mean_squared_error
+from sklearn.metrics import mean_squared_error, r2_score
 import matplotlib.pyplot as plt
 
 def MSE(gt : np.array, pt : np.array):
@@ -18,14 +18,15 @@ def compute_metrics(gt : Union[np.ndarray, List], pt : Union[np.ndarray, List], 
     mse = MSE(gt, pt)
     rmse = RMSE(gt, pt)
     mae = MAE(gt, pt)
+    r2 = r2_score(gt, pt)
     
     if is_print:
         if algorithm:
-            print("# {}, mse : {:.3f}, rmse : {:.3f}, mae : {:.3f}".format(algorithm, mse, rmse, mae))
+            print("# {}, mse:{:.3f}, rmse:{:.3f}, mae:{:.3f}, r2:{:.3f}".format(algorithm, mse, rmse, mae, r2))
         else:
-            print("# mse : {:.3f}, rmse : {:.3f}, mae : {:.3f}".format(mse, rmse, mae))
+            print("# mse:{:.3f}, rmse:{:.3f}, mae:{:.3f}, r2:{:.3f}".format(mse, rmse, mae, r2))
             
-    return mse, rmse, mae
+    return mse, rmse, mae, r2
 
 def split_data(df : pd.DataFrame, train_ratio : float, valid_ratio : float):
     total_len = len(df)

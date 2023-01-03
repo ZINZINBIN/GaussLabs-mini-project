@@ -65,11 +65,14 @@ class InstanceNorm(nn.Module):
         self.sig_b = self.In.running_var.view(1,self.num_features,1)
         
     def _denormalize(self, x : torch.Tensor):
-        x = x * self.sig_b + self.mu_b
-        
+    
         if self.In.affine:
-            w = self.In.weight
-            b = self.In.bias
+            w = self.In.weight.view(1,self.num_features, 1)
+            b = self.In.bias.view(1,self.num_features, 1)
+            x = x - b
+            x = x / (w + self.eps*self.eps)
+            
+        x = x * self.sig_b + self.mu_b
         
         return x
 
@@ -165,12 +168,13 @@ class LayerNorm(nn.Module):
         if self.beta is not None:
             x -= self.beta
         if self.gamma is not None:
-            x /= self.gamma
+            x /= (self.gamma + self.eps * self.eps)
         y = (x + self.mean) * self.std
+        
         return y
         
 class Wrapper(nn.Module):
-    def __init__(self, model : nn.Module, scaler_type : Literal['None', 'MinMax', 'BN', 'LN', 'IN','RevIN'], **kwargs):
+    def __init__(self, model : nn.Module, scaler_type : Literal['normal', 'MinMax', 'BN', 'LN', 'IN','RevIN'], **kwargs):
         super().__init__()
         
         self.scaler_type = scaler_type

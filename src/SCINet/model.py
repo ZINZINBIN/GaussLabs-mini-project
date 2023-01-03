@@ -401,6 +401,29 @@ class SCINet(nn.Module):
         sample_data = torch.zeros((1, self.input_len, self.input_dim))
         return summary(self, sample_data, batch_size = 1, show_input = True, show_hierarchical=False,print_summary=True)
 
+    def predict(self, x : torch.Tensor, target_len : int):
+        
+        output = torch.zeros((self.input_len + target_len, self.input_dim,)).to(x.device)
+        output[0:self.input_len,:] = x
+        
+        if x.ndim == 2:
+            x = x.unsqueeze(0)
+        
+        with torch.no_grad():
+            for idx_srt in range(0, self.input_len + target_len, self.output_len):
+                
+                if self.input_len + target_len - idx_srt < self.output_len:
+                    idx_end = -1
+                    idx_srt = idx_end - self.input_len
+                else:
+                    idx_end = idx_srt + self.output_len
+                
+                pred = self.forward(x).squeeze(0)
+                output[idx_srt : idx_end,:] = pred
+                
+        output = output[self.input_len:, :].unsqueeze(0)
+        return output
+
 
 def get_variable(x):
     x = Variable(x)

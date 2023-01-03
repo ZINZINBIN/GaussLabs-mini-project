@@ -30,7 +30,7 @@ def parsing():
     parser.add_argument("--batch_size", type = int, default = 128)
     parser.add_argument("--num_epoch", type = int, default = 64)
     parser.add_argument("--seq_len", type = int, default = 128)
-    parser.add_argument("--pred_len", type = int, default = 32)
+    parser.add_argument("--pred_len", type = int, default = 96)
     parser.add_argument("--stride", type = int, default = 4)
     parser.add_argument("--dist", type = int, default = 0)
     parser.add_argument("--num_workers", type = int, default = 4)
@@ -47,12 +47,12 @@ def parsing():
     
     # scaler : MinMax, Robust, Standard, BatchNorm, LayerNorm, RevIN
     parser.add_argument("--use_scaler", type = bool, default = True)
-    parser.add_argument("--scaler", type = str, default = "RevIN", choices=['MinMax','BatchNorm', 'LayerNorm', 'InstanceNorm','RevIN'])
+    parser.add_argument("--scaler", type = str, default = "RevIN", choices=['Normal','MinMax','BatchNorm', 'LayerNorm', 'InstanceNorm','RevIN'])
 
     # monitoring the training process
     parser.add_argument("--verbose", type = int, default = 4)
     
-    # model setup - lstm
+    # model setup - scinet
     parser.add_argument("--hid_size", type = int, default = 1)
     parser.add_argument("--num_stack", type = int, default = 1)
     parser.add_argument("--num_levels", type = int, default = 3)
@@ -93,9 +93,9 @@ if __name__ == "__main__":
         device = 'cpu'
         
     # scaler
-    if not args['use_scaler']:
+    if args['scaler'] == 'Normal':
         args_scaler = {}
-        tag_scale = 'None'
+        tag_scale = 'normal'
         
     elif args['scaler'] == 'MinMax':
         args_scaler = {            
@@ -151,8 +151,6 @@ if __name__ == "__main__":
         os.mkdir(save_dir)
     
     tag = "{}_seq_{}_pred_{}_dist_{}_scaler_{}_{}".format(args["tag"], args["seq_len"], args['pred_len'], args["dist"], tag_scale, args['dataset'])
-    save_best_dir = "./weights/{}_best.pt".format(tag)
-    save_last_dir = "./weights/{}_last.pt".format(tag)
     exp_dir = os.path.join(save_dir, "tensorboard_{}".format(tag))
     
     # dataset setup
@@ -245,7 +243,7 @@ if __name__ == "__main__":
     # evaluation process
     print("\n################# evaluation process #################\n")
     model.load_state_dict(torch.load(os.path.join("./weights", "{}_best.pt".format(tag))))
-    test_loss = evaluate(
+    test_loss, mse, rmse, mae, r2 = evaluate(
         test_loader,
         model,
         'scinet',
