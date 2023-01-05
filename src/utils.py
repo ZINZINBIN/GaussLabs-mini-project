@@ -1,7 +1,8 @@
 import numpy as np
 import pandas as pd
-from typing import Union, List, Optional, Tuple
+from typing import Union, List, Optional, Tuple, Literal
 from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.preprocessing import StandardScaler, RobustScaler, MinMaxScaler
 import matplotlib.pyplot as plt
 
 def MSE(gt : np.array, pt : np.array):
@@ -28,7 +29,31 @@ def compute_metrics(gt : Union[np.ndarray, List], pt : Union[np.ndarray, List], 
             
     return mse, rmse, mae, r2
 
-def split_data(df : pd.DataFrame, train_ratio : float, valid_ratio : float):
+def split_data(
+    df : pd.DataFrame, 
+    train_ratio : float, 
+    valid_ratio : float, 
+    src_cols : List, 
+    scaler : Optional[Literal['Standard','MinMax', 'Robust']] = None, 
+    is_MA : bool = False,
+    window : Optional[int] = 6,
+    min_periods : Optional[int] = 1
+    ):
+    
+    # Moving Average
+    if is_MA:  
+        df[src_cols] = df[src_cols].rolling(window = window, min_periods=min_periods, center=True, win_type=None, on=None, axis=0).mean().values
+    
+    # Scaling
+    if scaler == 'Standard':
+        scaler = StandardScaler()
+    elif scaler == 'MinMax':
+        scaler = MinMaxScaler()
+    elif scaler == 'Robust':
+        scaler = RobustScaler()
+    else:
+        scaler = None
+    
     total_len = len(df)
     train_len = int(total_len * train_ratio)
     valid_len = int(total_len * valid_ratio)
@@ -36,6 +61,13 @@ def split_data(df : pd.DataFrame, train_ratio : float, valid_ratio : float):
     df_train = df[0:train_len]
     df_valid = df[train_len:train_len + valid_len]
     df_test = df[train_len + valid_len:-1]
+    
+    if scaler:
+        df_train[src_cols] = scaler.fit_transform(df_train[src_cols].values)
+        df_valid[src_cols] = scaler.transform(df_valid[src_cols].values)
+        df_test[src_cols] = scaler.transform(df_test[src_cols].values)
+        
+        return df_train, df_valid, df_test, scaler
     
     return df_train, df_valid, df_test
 

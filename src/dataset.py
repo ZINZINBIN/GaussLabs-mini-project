@@ -1,15 +1,16 @@
 import pandas as pd
 import torch
 from torch.utils.data import Dataset
-from typing import List
+from typing import List, Literal
 
 class CustomDataset(Dataset):
-    def __init__(self, df : pd.DataFrame, src_cols : List, tar_cols : List, src_len : int, tar_len : int, stride : int = 1):
+    def __init__(self, df : pd.DataFrame, src_cols : List, tar_cols : List, src_len : int, tar_len : int, stride : int = 1, mode : Literal['forecast','regression'] = 'forecast'):
         self.data = df
         self.src_cols = src_cols
         self.tar_cols = tar_cols
         self.src_len = src_len
         self.tar_len = tar_len
+        self.mode = mode
 
         self.source_indices = []
         self.target_indices = []
@@ -30,7 +31,11 @@ class CustomDataset(Dataset):
                 break
             else:
                 self.source_indices.append(idx)
-                self.target_indices.append(idx + self.src_len)
+                
+                if self.mode == 'forecast':
+                    self.target_indices.append(idx + self.src_len)
+                else:
+                    self.target_indices.append(idx)
 
     def __len__(self):
         return len(self.source_indices)

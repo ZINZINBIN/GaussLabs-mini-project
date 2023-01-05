@@ -29,8 +29,8 @@ def parsing():
     # batch size / sequence length / epochs / distance / num workers / pin memory use
     parser.add_argument("--batch_size", type = int, default = 128)
     parser.add_argument("--num_epoch", type = int, default = 64)
-    parser.add_argument("--seq_len", type = int, default = 128)
-    parser.add_argument("--pred_len", type = int, default = 96)
+    parser.add_argument("--seq_len", type = int, default = 24*4*4)
+    parser.add_argument("--pred_len", type = int, default = 24*4)
     parser.add_argument("--stride", type = int, default = 4)
     parser.add_argument("--dist", type = int, default = 0)
     parser.add_argument("--num_workers", type = int, default = 4)
@@ -50,7 +50,7 @@ def parsing():
     parser.add_argument("--scaler", type = str, default = "RevIN", choices=['Normal', 'MinMax','BatchNorm', 'LayerNorm', 'InstanceNorm','RevIN'])
 
     # monitoring the training process
-    parser.add_argument("--verbose", type = int, default = 4)
+    parser.add_argument("--verbose", type = int, default = 16)
     
     # model setup - lstm
     parser.add_argument("--hidden_dim", type = int, default = 128)
@@ -98,29 +98,25 @@ if __name__ == "__main__":
         }
         tag_scale = 'MinMax'
     elif args['scaler'] == 'BatchNorm':
-        args_scaler = {            
+        args_scaler = {
             "num_features" : num_features,
             "eps" : 1e-6,
-            "momentum" : 0.1,
-            "affine" : True,
-            "track_running_stats" : True
+            "affine" : True
         }
+        
         tag_scale = 'BN'
     elif args['scaler'] == 'InstanceNorm':
-        args_scaler = {            
+        args_scaler = {
             "num_features" : num_features,
             "eps" : 1e-6,
-            "momentum" : 0.1,
-            "affine" : True,
-            "track_running_stats" : True
+            "affine" : False
         }
         tag_scale = 'IN'
     elif args['scaler'] == 'LayerNorm':
-        args_scaler = {            
+        args_scaler = {
             "num_features" : num_features,
             "eps" : 1e-6,
-            "gamma":True, 
-            "beta":True
+            "affine" : True
         }
         tag_scale = 'LN'
     elif args['scaler'] == 'RevIN':
@@ -145,7 +141,7 @@ if __name__ == "__main__":
     # dataset setup
     data = pd.read_csv(config.DATA_PATH[args['dataset']])
     data[config.t_feature_cols] = time_features(data, timeenc = 1, freq = 'h')
-    ts_train, ts_valid, ts_test = split_data(data, 0.6, 0.2)
+    ts_train, ts_valid, ts_test, scaling = split_data(data, 0.6, 0.2, config.src_cols, 'Standard')
     
     train_data = CustomDataset(ts_train, config.src_cols, config.tar_cols, args['seq_len'], args['pred_len'], stride = args['stride'])
     valid_data = CustomDataset(ts_valid, config.src_cols, config.tar_cols, args['seq_len'], args['pred_len'], stride = args['stride'])
@@ -234,4 +230,5 @@ if __name__ == "__main__":
         optimizer,
         loss_fn,
         device, 
+        scaling
     )

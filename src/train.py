@@ -14,7 +14,7 @@ def train_per_epoch(
     scheduler : Optional[torch.optim.lr_scheduler._LRScheduler],
     loss_fn : torch.nn.Module,
     device : str = "cpu",
-    max_norm_grad : Optional[float] = None
+    max_norm_grad : Optional[float] = None,
     ):
 
     model.train()
@@ -130,7 +130,7 @@ def train(
             scheduler,
             loss_fn,
             device,
-            max_norm_grad
+            max_norm_grad,
         )
 
         valid_loss = valid_per_epoch(
@@ -139,7 +139,7 @@ def train(
             model_type,
             optimizer,
             loss_fn,
-            device 
+            device,
         )
 
         train_loss_list.append(train_loss)
@@ -170,10 +170,11 @@ def train(
 def evaluate(
     test_loader : DataLoader, 
     model : torch.nn.Module,
-    model_type : Literal['lstm','scinet','informer'],
+    model_type : Literal['lstm','scinet','informer', 'Transformer'],
     optimizer : torch.optim.Optimizer,
     loss_fn : torch.nn.Module,
     device : str = "cpu",
+    scaling = None
     ):
 
     model.eval()
@@ -189,14 +190,14 @@ def evaluate(
             data = data.to(device)
             target = target.to(device)
             
-            if model_type == 'lstm':
+            if model_type == 'lstm' or model_type == 'Transformer':
                 target_len = target.size()[1]
                 output = model.predict(data, target_len)
             elif model_type == 'informer':
                 output = model(data, target)
             else:
                 output = model(data)
-
+            
             loss = loss_fn(output, target)
     
             test_loss += loss.item()
@@ -209,6 +210,10 @@ def evaluate(
     
     pts = np.concatenate(pts, axis = 0)
     gts = np.concatenate(gts, axis = 0)
+    
+    if scaling:
+        pts = scaling.inverse_transform(pts)
+        gts = scaling.inverse_transform(gts)
     
     pts = pts[:,-1]
     gts = gts[:,-1]

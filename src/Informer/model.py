@@ -21,6 +21,8 @@ class Informer(nn.Module):
         self.attn = attn
         self.output_attention = output_attention
         self.t_input_dim  = t_input_dim
+        
+        self.input_dim = enc_in + t_input_dim
 
         # Encoding
         self.enc_embedding = DataEmbedding(enc_in, d_model, embed, freq, dropout)
@@ -95,6 +97,31 @@ class Informer(nn.Module):
         
         return summary(self, sample_data, sample_target, None, None, None, batch_size = 1, show_input = True, show_hierarchical=False,print_summary=True)
 
+    def predict(self, x : torch.Tensor, target_len : int):
+        
+        output = torch.zeros((self.seq_len + target_len, self.input_dim,)).to(x.device)
+        output[0:self.seq_len,:] = x
+        
+        if x.ndim == 2:
+            x = x.unsqueeze(0)
+        
+        with torch.no_grad():
+            for idx_srt in range(0, self.seq_len + target_len, self.pred_len):
+                
+                if self.seq_len + target_len - idx_srt < self.pred_len:
+                    idx_end = -1
+                    idx_srt = idx_end - self.seq_len
+                else:
+                    idx_end = idx_srt + self.pred_len
+                    
+                x_target = torch.zeros_like(x).to(x.device)
+                
+                pred = self.forward(x, x_target).squeeze(0)
+                output[idx_srt : idx_end,:] = pred
+                
+        output = output[self.seq_len:, :].unsqueeze(0)
+        
+        return output
 
 class InformerStack(nn.Module):
     def __init__(self, enc_in, dec_in, c_out, seq_len, label_len, out_len, 
@@ -171,3 +198,4 @@ class InformerStack(nn.Module):
             return dec_out[:,-self.pred_len:,:], attns
         else:
             return dec_out[:,-self.pred_len:,:] # [B, L, D]
+        
