@@ -26,18 +26,18 @@ output_denorm = revin(outputs, 'denorm') # Denormalization process
 
 - The code explaination is here
 <div>
-    <img src="/Image/PICTURE_02.png"  width="640" height="480">
+    <img src="/Image/PICTURE_02.png"  width="480" height="256">
 </div>
 
 ## Result for experiments 
 ### Effect of RevIN on data distribution shift
 <div>
-    <img src="/Image/PICTURE_03.png"  width="640" height="480">
+    <img src="/Image/PICTURE_03.png"  width="480" height="256">
 </div>
 
 ### Model performance enhancement from normalization : Comparison with other method
 <div>
     <p float = 'left'>
-        <img src="/Image/PICTURE_04.png"  width="640" height="480">
+        <img src="/Image/PICTURE_04.png"  width="480" height="256">
     </p>
 </div>
